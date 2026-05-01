@@ -44,22 +44,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-tskr::require_cmd docker curl jq aws cargo
+tskr::require_cmd docker curl jq cargo
 
 tskr::log "bringing up docker compose stack"
 (cd "${repo_root}" && docker compose up -d --wait)
 
-MINIO_ENDPOINT="http://localhost:9100"
 WRITER_ENDPOINT="http://localhost:8090"
-BUCKET="tskr"
-
-tskr::log "creating MinIO bucket: ${BUCKET}"
-AWS_ACCESS_KEY_ID=minioadmin \
-AWS_SECRET_ACCESS_KEY=minioadmin \
-AWS_REGION=us-east-1 \
-    aws --endpoint-url "${MINIO_ENDPOINT}" s3api create-bucket \
-        --bucket "${BUCKET}" 2>/dev/null \
-    || tskr::log "bucket ${BUCKET} already exists or unreachable; continuing"
 
 tskr::log "waiting for tskr-writer /-/ready"
 tskr::wait_http "${WRITER_ENDPOINT}/-/ready" 60

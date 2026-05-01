@@ -8,42 +8,41 @@ test, which exercises the docker-compose stack from MinIO up through the
 
 `scripts/smoke.sh` is the Milestone 1 acceptance test. In order, it:
 
-1. Validates required host commands are on PATH (`docker`, `curl`, `jq`, `aws`).
+1. Validates required host commands are on PATH (`docker`, `curl`, `jq`).
 2. Brings the full stack up via `docker compose up -d --wait` from the repo root.
-3. Creates the `tskr` bucket in MinIO via `aws s3api create-bucket`
-   (idempotent: a pre-existing bucket is logged and skipped).
-4. Polls `http://localhost:8090/-/ready` until `tskr-writer` is healthy
+3. Polls `http://localhost:8090/-/ready` until `tskr-writer` is healthy
    (max 60s).
-5. Uploads each `tests/fixtures/sessions/*.jsonl` fixture to
+4. Uploads each `tests/fixtures/sessions/*.jsonl` fixture to
    `POST /sessions/upload` on `tskr-writer` with the headers
    `Content-Type: application/x-ndjson`, `X-Tskr-Author`, `X-Tskr-Repo`,
    `X-Tskr-Host`. Each response is pretty-printed via `jq`.
-6. By default (iter 3): logs that CLI assertions are skipped and exits 0.
-   Once the CLI lands in iter 6/7, this step will run `tskr search` and
-   `tskr show` against the uploaded data.
-7. On exit: tears the stack down with `docker compose down -v`, unless
+5. Runs `tskr search` and `tskr show` against the uploaded data to assert
+   the fixture sessions are searchable end-to-end.
+6. On exit: tears the stack down with `docker compose down -v`, unless
    `--no-teardown` was passed.
+
+`tskr-writer` creates the MinIO bucket on startup if it doesn't exist.
 
 ### Usage
 
 ```
-./scripts/smoke.sh                       # default: bring up, upload, tear down
+./scripts/smoke.sh                       # default: bring up, upload, run CLI, tear down
 ./scripts/smoke.sh --no-teardown         # leave the stack running for debugging
-TSKR_SKIP_CLI=0 ./scripts/smoke.sh       # once iter 6/7 lands, run CLI asserts
-./scripts/smoke.sh --no-skip-cli         # equivalent to TSKR_SKIP_CLI=0
+TSKR_SKIP_CLI=1 ./scripts/smoke.sh       # debug-only: skip CLI search/show assertions
+./scripts/smoke.sh --skip-cli            # equivalent to TSKR_SKIP_CLI=1
 ./scripts/smoke.sh --help                # usage text
 ```
 
-As of iter 3 the CLI portion is stubbed via `TSKR_SKIP_CLI=1` (the default).
-Passing `--no-skip-cli` or `TSKR_SKIP_CLI=0` will currently exit non-zero
-with a TODO message; this is intentional until iter 7 wires the CLI in.
+By default `smoke.sh` drives the real `tskr` CLI for `search` and `show`
+assertions. `--skip-cli` / `TSKR_SKIP_CLI=1` is for debugging only (e.g.
+when iterating on the writer in isolation).
 
 ### Required host commands
 
 - `docker` (with the `compose` plugin)
 - `curl`
 - `jq`
-- `aws` (the AWS CLI v2)
+- `cargo`
 
 ### Service ports
 

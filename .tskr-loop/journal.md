@@ -5,3 +5,5 @@
 ### iter 5 — approve — wired pipeline (parse→filter→render→embed→upsert→S3), real /-/ready probes, AppState, compose healthcheck
 ### iter 6 — approve — tskr CLI (search/list/show/backfill + daemon stub), 6 parser tests
 ### iter 7 — approve — tskr-daemon (poll-based, atomic state, backoff); smoke.sh drives real CLI end-to-end (25 tests pass)
+### iter 8 — request_changes — Client::new networked breaks tests; smoke.sh deadlocks because vector-writer also needs the bucket; folded into iter 9
+### iter 9 — approve — bucket bootstrap moved to minio-init compose service + ensure_bucket pub method called from main; tests restored; static checks clean

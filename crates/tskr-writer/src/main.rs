@@ -14,6 +14,7 @@ async fn main() -> Result<()> {
     let cfg = Config::from_env()?;
     let bind_addr = cfg.bind_addr;
     let s3 = tskr_writer::s3::Client::new(&cfg).await?;
+    s3.ensure_bucket().await?;
     let embed = tskr_writer::embed::Client::new(&cfg);
     let vector = tskr_writer::vector::Client::new(&cfg);
     let state = std::sync::Arc::new(tskr_writer::routes::AppState {

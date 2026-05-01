@@ -31,6 +31,28 @@ impl Client {
         })
     }
 
+    pub async fn ensure_bucket(&self) -> anyhow::Result<()> {
+        match self.inner.head_bucket().bucket(&self.bucket).send().await {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                let svc = err.into_service_error();
+                if svc.is_not_found() {
+                    self.inner
+                        .create_bucket()
+                        .bucket(&self.bucket)
+                        .send()
+                        .await
+                        .with_context(|| format!("create_bucket({}) failed", self.bucket))?;
+                    tracing::info!(bucket = %self.bucket, "ensured bucket exists");
+                    Ok(())
+                } else {
+                    Err(anyhow::Error::new(svc)
+                        .context(format!("head_bucket({}) failed", self.bucket)))
+                }
+            }
+        }
+    }
+
     pub async fn ready(&self) -> anyhow::Result<()> {
         self.inner
             .head_bucket()
