@@ -1,0 +1,45 @@
+storage:
+  type: SlateDb
+  path: vector-data
+  object_store:
+    type: Aws
+    region: us-east-1
+    bucket: tskr
+dimensions: 384
+distance_metric: L2
+flush_interval: 5
+split_threshold_vectors: 2000
+merge_threshold_vectors: 500
+split_search_neighbourhood: 16
+max_pending_and_running_rebalance_tasks: 4
+rebalance_backpressure_resume_threshold: 2
+max_rebalance_tasks: 4
+chunk_target: 4096
+metadata_fields:
+  - name: session_id
+    field_type: String
+    indexed: true
+  - name: event_index
+    field_type: Int64
+    indexed: true
+  - name: segment_index
+    field_type: Int64
+    indexed: true
+  - name: author
+    field_type: String
+    indexed: true
+  - name: repo
+    field_type: String
+    indexed: true
+  - name: model
+    field_type: String
+    indexed: true
+  - name: role
+    field_type: String
+    indexed: true
+  - name: timestamp
+    field_type: String
+    indexed: true
+  - name: text
+    field_type: String
+    indexed: false

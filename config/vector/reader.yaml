@@ -1,0 +1,37 @@
+storage:
+  type: SlateDb
+  path: vector-data
+  object_store:
+    type: Aws
+    region: us-east-1
+    bucket: tskr
+dimensions: 384
+distance_metric: L2
+metadata_fields:
+  - name: session_id
+    field_type: String
+    indexed: true
+  - name: event_index
+    field_type: Int64
+    indexed: true
+  - name: segment_index
+    field_type: Int64
+    indexed: true
+  - name: author
+    field_type: String
+    indexed: true
+  - name: repo
+    field_type: String
+    indexed: true
+  - name: model
+    field_type: String
+    indexed: true
+  - name: role
+    field_type: String
+    indexed: true
+  - name: timestamp
+    field_type: String
+    indexed: true
+  - name: text
+    field_type: String
+    indexed: false
