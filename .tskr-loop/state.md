@@ -1,29 +1,27 @@
 # tskr Milestone 1 — loop state
 
 ## Deliverables (from PLAN.md §Milestone 1)
-- [x] docker-compose.yml with minio, embedding-server, vector-writer, vector-reader, tskr-writer (skeleton iter 1; tskr-specific Aws-mode vector configs iter 2; tskr-writer healthcheck re-enabled iter 5)
-- [~] tskr-writer service (Rust / axum) with /sessions/upload, /healthz, /-/ready (iter 4 landed HTTP skeleton + real client modules; iter 5 wires pipeline + real /-/ready dep probes + AppState)
-- [~] Chunking + embedding + S3 segment write + vector upsert pipeline (tskr-core landed iter 2; clients iter 4; full pipeline wired in iter 5)
-- [~] S3 layout: sessions/<id>/manifest.json + seg-NNNNN.jsonl (manifest type iter 2; segment + manifest persistence wired iter 5)
-- [~] Vector schema (writer-side upsert client iter 4; rows produced+upserted by pipeline iter 5)
-- [ ] tskr CLI: search / list / show / daemon / backfill (iter 6)
+- [x] docker-compose.yml with minio, embedding-server, vector-writer, vector-reader, tskr-writer
+- [x] tskr-writer service (Rust / axum) with /sessions/upload, /healthz, /-/ready
+- [x] Chunking + embedding + S3 segment write + vector upsert pipeline
+- [x] S3 layout: sessions/<id>/manifest.json + seg-NNNNN.jsonl
+- [x] Vector schema (writer-side upsert client iter 4; rows produced+upserted by pipeline iter 5)
+- [~] tskr CLI: search / list / show / backfill (iter 6 in flight); daemon stubbed (iter 7)
 - [ ] tskr-daemon scanning ~/.claude/projects with ~/.tskr/state.json (iter 7)
 - [x] Fixture sessions under tests/fixtures/sessions/
 - [~] scripts/smoke.sh end-to-end test (skeleton iter 3; real CLI wiring iter 7)
 - [ ] README.md "5 minutes to first search" (iter 8)
 
 ## Notes
-- Iter 1: scaffold-only Cargo workspace + docker-compose skeleton.
-- Iter 2: tskr-core (typed events, classifier, renderer, segmenter, manifest); Aws-mode vector configs; 4 fixtures. 16 tests pass.
-- Iter 3: HTTP skeleton + smoke.sh skeleton. NOT committed (request_changes); landed with iter 4.
-- Iter 4: TSKR_EMBED_URL fix + real S3/embed/vector client modules. Approved (a483691). Pipeline still stubbed.
-- Iter 5 plan: w1 = pipeline.rs (full per-upload algorithm) + routes.rs (header parsing, AppState, real /-/ready dep probes) + main.rs (build AppState) + s3.rs (add ready() head_bucket + get_segment()) + embed.rs (add ready() GET /health) + vector.rs (add ready_writer()/ready_reader() GET /-/ready) + lib.rs (export AppState) + tests/health.rs (single test). w2 = re-enable docker-compose tskr-writer healthcheck against http://localhost:8090/healthz.
-- Pipeline contract: route reads X-Tskr-Author/Repo/Host (req'd, 400 if missing) + X-Tskr-Start-Event-Index (opt, default 0). Pipeline gets manifest, filters incoming events by global_idx > last_persisted, groups into 10-event segments, fetches+merges the lowest extending partial segment, classifies+renders survivors, embeds in one batch, builds UpsertRows (id=`{session_id}:{event_index}`), upserts via vector client, PUTs every affected segment, PUTs updated manifest preserving started_at. Returns {accepted, indexed}.
-- Verified upstream endpoints: embedding-server `/health` (Flask); opendata vector-writer/reader `/-/ready`. MinIO readiness via head_bucket.
-- AppState design: struct AppState { cfg, s3, embed, vector }. routes::app(Arc<AppState>) -> Router uses State<Arc<AppState>>. main.rs awaits S3 ctor, builds the rest sync.
-- Deferred for iter 6: tskr CLI.
+- Iter 1–5 committed. tskr-writer pipeline fully wired and unit-tested.
+- Iter 6 plan: tskr CLI single-worker build — Cargo.toml deps, clap derive subcommands (search/list/show/backfill/daemon), config loader with localhost defaults, embed/vector/s3 client modules, command implementations, parser unit tests. daemon subcommand prints 'tskr daemon: deferred to iter 7' and exits 2.
+- Verified vector reader endpoint: POST `/api/v1/vector/search` Content-Type `application/protobuf+json`. Request: `{vector: [f32], k: u32, filter?: JsonFilter, include_fields?: [str]}`. JsonFilter: `{eq:{field,value}}`, `{neq:...}`, `{in:{field,values:[]}}`, `{and:[...]}`, `{or:[...]}`. No gte/lte; `--since` is a client-side filter.
+- Response shape: `{status, results: [{score, vector: {id, attributes: {flat_metadata}}}]}`.
+- Defaults so the CLI works locally: TSKR_WRITER_URL=http://localhost:8090, TSKR_EMBED_URL=http://localhost:9000, TSKR_VECTOR_READER_URL=http://localhost:8081, TSKR_S3_ENDPOINT=http://localhost:9100, TSKR_S3_BUCKET=tskr, TSKR_S3_ACCESS_KEY=minioadmin, TSKR_S3_SECRET_KEY=minioadmin, TSKR_S3_REGION=us-east-1.
+- Search output line: `[<author>/<repo>] <ts> "<text first 100>" (score=...) — session=<session_id> event=<event_index>`. Smoke.sh in iter 7 will grep for the short-bug session_id `00000000-0000-0000-0000-000000000001`.
+- Show is headless-only. TUI (ratatui) deferred — milestone 1 calls for it but smoke test only needs headless.
 - Deferred for iter 7: tskr-daemon + smoke.sh CLI wiring.
 - Deferred for iter 8: README.
 
 ## Last reviewer rationale
-(iter 4) approve — tskr-writer HTTP skeleton + smoke.sh + real S3/embed/vector clients; env-var fix. Committed as a483691.
+(iter 5) approve — pipeline + AppState + healthcheck. Committed as 6663bb4.
