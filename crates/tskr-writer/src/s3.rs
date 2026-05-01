@@ -31,6 +31,50 @@ impl Client {
         })
     }
 
+    pub async fn ready(&self) -> anyhow::Result<()> {
+        self.inner
+            .head_bucket()
+            .bucket(&self.bucket)
+            .send()
+            .await
+            .with_context(|| format!("head_bucket failed for {}", self.bucket))?;
+        Ok(())
+    }
+
+    pub async fn get_segment(
+        &self,
+        session_id: &str,
+        segment_index: usize,
+    ) -> anyhow::Result<Option<Vec<u8>>> {
+        let key = tskr_core::segment_path(session_id, segment_index);
+        let result = self
+            .inner
+            .get_object()
+            .bucket(&self.bucket)
+            .key(&key)
+            .send()
+            .await;
+        match result {
+            Ok(output) => {
+                let bytes = output
+                    .body
+                    .collect()
+                    .await
+                    .with_context(|| format!("get_segment read body failed for key {key}"))?
+                    .into_bytes();
+                Ok(Some(bytes.to_vec()))
+            }
+            Err(err) => {
+                let service_err = err.into_service_error();
+                if service_err.is_no_such_key() {
+                    return Ok(None);
+                }
+                Err(anyhow::Error::new(service_err)
+                    .context(format!("get_segment failed for key {key}")))
+            }
+        }
+    }
+
     pub async fn put_segment(
         &self,
         session_id: &str,

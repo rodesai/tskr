@@ -104,9 +104,12 @@ services:
       TSKR_EMBED_URL: http://embedding-server:9000
       TSKR_VECTOR_WRITER_URL: http://vector-writer:8080
       TSKR_VECTOR_READER_URL: http://vector-reader:8080
-    # Healthcheck intentionally omitted: the tskr-writer binary is a placeholder
-    # in iteration 1 and does not yet serve /healthz. The smoke test will
-    # exercise it once the real service is implemented.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8090/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     depends_on:
       minio:
         condition: service_healthy

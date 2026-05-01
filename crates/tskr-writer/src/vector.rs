@@ -4,9 +4,9 @@ use serde_json::Value;
 
 pub struct Client {
     http: reqwest::Client,
+    writer_base_url: String,
+    reader_base_url: String,
     writer_url: String,
-    #[allow(dead_code)]
-    reader_url: String,
 }
 
 #[derive(Serialize)]
@@ -26,13 +26,14 @@ pub struct UpsertRow {
 
 impl Client {
     pub fn new(cfg: &crate::config::Config) -> Self {
+        let writer_base_url = cfg.vector_writer_url.trim_end_matches('/').to_string();
+        let reader_base_url = cfg.vector_reader_url.trim_end_matches('/').to_string();
+        let writer_url = format!("{writer_base_url}/api/v1/vector/write");
         Self {
             http: reqwest::Client::new(),
-            writer_url: format!(
-                "{}/api/v1/vector/write",
-                cfg.vector_writer_url.trim_end_matches('/')
-            ),
-            reader_url: cfg.vector_reader_url.trim_end_matches('/').to_string(),
+            writer_base_url,
+            reader_base_url,
+            writer_url,
         }
     }
 
@@ -55,6 +56,34 @@ impl Client {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             anyhow::bail!("POST {} returned {}: {}", self.writer_url, status, body);
+        }
+        Ok(())
+    }
+
+    pub async fn ready_writer(&self) -> anyhow::Result<()> {
+        let url = format!("{}/-/ready", self.writer_base_url);
+        let resp = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .with_context(|| format!("GET {url} failed"))?;
+        if !resp.status().is_success() {
+            anyhow::bail!("GET {url} returned {}", resp.status());
+        }
+        Ok(())
+    }
+
+    pub async fn ready_reader(&self) -> anyhow::Result<()> {
+        let url = format!("{}/-/ready", self.reader_base_url);
+        let resp = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .with_context(|| format!("GET {url} failed"))?;
+        if !resp.status().is_success() {
+            anyhow::bail!("GET {url} returned {}", resp.status());
         }
         Ok(())
     }

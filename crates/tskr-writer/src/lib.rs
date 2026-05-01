@@ -6,4 +6,4 @@ pub mod routes;
 pub mod s3;
 pub mod vector;
 
-pub use routes::app;
+pub use routes::{app, AppState};

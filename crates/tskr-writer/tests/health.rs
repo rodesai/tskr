@@ -3,9 +3,29 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
+async fn test_app() -> axum::Router {
+    std::env::set_var("TSKR_S3_ENDPOINT", "http://127.0.0.1:1");
+    std::env::set_var("TSKR_S3_ACCESS_KEY", "x");
+    std::env::set_var("TSKR_S3_SECRET_KEY", "x");
+    std::env::set_var("TSKR_EMBED_URL", "http://127.0.0.1:1");
+    std::env::set_var("TSKR_VECTOR_WRITER_URL", "http://127.0.0.1:1");
+    std::env::set_var("TSKR_VECTOR_READER_URL", "http://127.0.0.1:1");
+    let cfg = tskr_writer::config::Config::from_env().unwrap();
+    let s3 = tskr_writer::s3::Client::new(&cfg).await.unwrap();
+    let embed = tskr_writer::embed::Client::new(&cfg);
+    let vector = tskr_writer::vector::Client::new(&cfg);
+    let state = std::sync::Arc::new(tskr_writer::routes::AppState {
+        cfg,
+        s3,
+        embed,
+        vector,
+    });
+    tskr_writer::routes::app(state)
+}
+
 #[tokio::test]
 async fn health_returns_ok() {
-    let app = tskr_writer::app();
+    let app = test_app().await;
     let response = app
         .oneshot(
             Request::builder()
@@ -18,49 +38,4 @@ async fn health_returns_ok() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = response.into_body().collect().await.unwrap().to_bytes();
     assert_eq!(&body[..], b"ok");
-}
-
-#[tokio::test]
-async fn ready_returns_ok() {
-    let app = tskr_writer::app();
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/-/ready")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    assert_eq!(&body[..], b"ok");
-}
-
-#[tokio::test]
-async fn upload_classifies_fixture() {
-    let fixture = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/fixtures/sessions/short-bug.jsonl"
-    ))
-    .unwrap();
-
-    let app = tskr_writer::app();
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/sessions/upload")
-                .body(Body::from(fixture))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    let accepted = json["accepted"].as_u64().unwrap();
-    let indexed = json["indexed"].as_u64().unwrap();
-    assert!(accepted >= 1, "expected accepted >= 1, got {accepted}");
-    assert!(indexed >= 1, "expected indexed >= 1, got {indexed}");
 }

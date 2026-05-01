@@ -12,10 +12,19 @@ async fn main() -> Result<()> {
         .init();
 
     let cfg = Config::from_env()?;
-    let app = tskr_writer::app();
+    let bind_addr = cfg.bind_addr;
+    let s3 = tskr_writer::s3::Client::new(&cfg).await?;
+    let embed = tskr_writer::embed::Client::new(&cfg);
+    let vector = tskr_writer::vector::Client::new(&cfg);
+    let state = std::sync::Arc::new(tskr_writer::routes::AppState {
+        cfg,
+        s3,
+        embed,
+        vector,
+    });
 
-    tracing::info!(addr = %cfg.bind_addr, "tskr-writer listening");
-    let listener = tokio::net::TcpListener::bind(cfg.bind_addr).await?;
-    axum::serve(listener, app).await?;
+    tracing::info!(addr = %bind_addr, "tskr-writer listening");
+    let listener = tokio::net::TcpListener::bind(bind_addr).await?;
+    axum::serve(listener, tskr_writer::routes::app(state)).await?;
     Ok(())
 }
