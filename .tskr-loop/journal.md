@@ -4,3 +4,4 @@
 ### iter 4 — approve — tskr-writer HTTP skeleton + smoke.sh + real S3/embed/vector clients; env-var fix
 ### iter 5 — approve — wired pipeline (parse→filter→render→embed→upsert→S3), real /-/ready probes, AppState, compose healthcheck
 ### iter 6 — approve — tskr CLI (search/list/show/backfill + daemon stub), 6 parser tests
+### iter 7 — approve — tskr-daemon (poll-based, atomic state, backoff); smoke.sh drives real CLI end-to-end (25 tests pass)

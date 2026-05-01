@@ -1,6 +1,18 @@
-use crate::cli::DaemonArgs;
+use crate::cli::{DaemonAction, DaemonArgs};
 
-pub fn run(_args: DaemonArgs) -> anyhow::Result<()> {
-    eprintln!("tskr daemon: deferred to iter 7");
-    std::process::exit(2);
+pub async fn run(args: DaemonArgs) -> anyhow::Result<()> {
+    match args.action {
+        DaemonAction::Start => {
+            let cfg = tskr_daemon::Config::from_env()?;
+            tskr_daemon::run(cfg).await
+        }
+        DaemonAction::Status => {
+            println!("milestone 1: tskr daemon runs in the foreground; no status check");
+            Ok(())
+        }
+        DaemonAction::Stop => {
+            println!("milestone 1: stop with Ctrl-C in the daemon's terminal");
+            Ok(())
+        }
+    }
 }

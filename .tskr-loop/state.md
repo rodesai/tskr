@@ -6,22 +6,21 @@
 - [x] Chunking + embedding + S3 segment write + vector upsert pipeline
 - [x] S3 layout: sessions/<id>/manifest.json + seg-NNNNN.jsonl
 - [x] Vector schema (writer-side upsert client iter 4; rows produced+upserted by pipeline iter 5)
-- [~] tskr CLI: search / list / show / backfill (iter 6 in flight); daemon stubbed (iter 7)
-- [ ] tskr-daemon scanning ~/.claude/projects with ~/.tskr/state.json (iter 7)
+- [x] tskr CLI: search / list / show / backfill (iter 6, ba6bb74); daemon wired iter 7
+- [~] tskr-daemon scanning ~/.claude/projects with ~/.tskr/state.json (iter 7 — poll-based foreground)
 - [x] Fixture sessions under tests/fixtures/sessions/
-- [~] scripts/smoke.sh end-to-end test (skeleton iter 3; real CLI wiring iter 7)
+- [~] scripts/smoke.sh end-to-end test (iter 7 wires real CLI; first full run pending Reviewer execution)
 - [ ] README.md "5 minutes to first search" (iter 8)
 
 ## Notes
-- Iter 1–5 committed. tskr-writer pipeline fully wired and unit-tested.
-- Iter 6 plan: tskr CLI single-worker build — Cargo.toml deps, clap derive subcommands (search/list/show/backfill/daemon), config loader with localhost defaults, embed/vector/s3 client modules, command implementations, parser unit tests. daemon subcommand prints 'tskr daemon: deferred to iter 7' and exits 2.
-- Verified vector reader endpoint: POST `/api/v1/vector/search` Content-Type `application/protobuf+json`. Request: `{vector: [f32], k: u32, filter?: JsonFilter, include_fields?: [str]}`. JsonFilter: `{eq:{field,value}}`, `{neq:...}`, `{in:{field,values:[]}}`, `{and:[...]}`, `{or:[...]}`. No gte/lte; `--since` is a client-side filter.
-- Response shape: `{status, results: [{score, vector: {id, attributes: {flat_metadata}}}]}`.
-- Defaults so the CLI works locally: TSKR_WRITER_URL=http://localhost:8090, TSKR_EMBED_URL=http://localhost:9000, TSKR_VECTOR_READER_URL=http://localhost:8081, TSKR_S3_ENDPOINT=http://localhost:9100, TSKR_S3_BUCKET=tskr, TSKR_S3_ACCESS_KEY=minioadmin, TSKR_S3_SECRET_KEY=minioadmin, TSKR_S3_REGION=us-east-1.
-- Search output line: `[<author>/<repo>] <ts> "<text first 100>" (score=...) — session=<session_id> event=<event_index>`. Smoke.sh in iter 7 will grep for the short-bug session_id `00000000-0000-0000-0000-000000000001`.
-- Show is headless-only. TUI (ratatui) deferred — milestone 1 calls for it but smoke test only needs headless.
-- Deferred for iter 7: tskr-daemon + smoke.sh CLI wiring.
+- Iter 1–6 committed (latest ba6bb74). 23 tests pass workspace-wide.
+- Iter 7 plan: tskr-daemon as a library (`tskr_daemon::run(Config)`) + thin binary. Polling every 2s. Per-file offsets in `~/.tskr/state.json`. Backoff 1s/2s/4s capped at 30s on 5xx; 4xx logs and skips.
+- Iter 7 wiring: `tskr-cli/Cargo.toml` adds `tskr-daemon = { path = "../tskr-daemon" }`. `commands/daemon.rs` becomes async, delegates to `tskr_daemon::run` for Start; Status/Stop print milestone-1 explanations and exit 0.
+- Iter 7 smoke.sh: drops `TSKR_SKIP_CLI=1` default (now `0`), keeps `--skip-cli` for debugging. Replaces curl loop with `tskr backfill`. Builds CLI once via `cargo build -p tskr-cli --release` then uses target/release/tskr directly. Sleeps 3s after backfill for vector flush.
+- Search assertion: `tskr search "Linux" | grep -F "session=00000000-0000-0000-0000-000000000001"`. Show assertion: `tskr show 00000000-0000-0000-0000-000000000001 --at-event 1 | grep -F "Linux"`.
+- Daemon repo: parent-dir basename of each `*.jsonl` file under `~/.claude/projects/`. Author: `git config user.email` cached at start, fallback `unknown@local`. Host: `$HOSTNAME` or `unknown`.
+- Daemon dependencies: `tokio`, `reqwest`, `serde`, `serde_json`, `anyhow`, `thiserror`, `tracing`. NO `notify` (poll-based for milestone 1).
 - Deferred for iter 8: README.
 
 ## Last reviewer rationale
-(iter 5) approve — pipeline + AppState + healthcheck. Committed as 6663bb4.
+(iter 6) approve — tskr CLI committed as ba6bb74. Daemon stub deferred to iter 7 (now in flight).

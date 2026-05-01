@@ -26,4 +26,5 @@ thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tskr-core = { path = "../tskr-core" }
+tskr-daemon = { path = "../tskr-daemon" }
 time = { version = "0.3", features = ["parsing", "formatting", "serde", "macros"] }

@@ -10,7 +10,7 @@ repo_root="$(cd "${script_dir}/.." && pwd)"
 source "${script_dir}/lib.sh"
 
 teardown=1
-skip_cli="${TSKR_SKIP_CLI:-1}"  # default ON for iter 3; flipped OFF in iter 7.
+skip_cli="${TSKR_SKIP_CLI:-0}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -21,12 +21,12 @@ while [[ $# -gt 0 ]]; do
             cat <<EOF
 Usage: $0 [--no-teardown] [--skip-cli|--no-skip-cli]
 
-Brings up the docker-compose stack, creates the MinIO bucket, uploads each
-fixture session to tskr-writer, and (when --no-skip-cli) runs \`tskr search\`
+Brings up the docker-compose stack, creates the MinIO bucket, backfills the
+fixture sessions via the tskr CLI, and (unless --skip-cli) runs \`tskr search\`
 and \`tskr show\` against the result.
 
 Environment:
-  TSKR_SKIP_CLI   "1" (default) skips CLI assertions; "0" requires CLI.
+  TSKR_SKIP_CLI   "0" (default) runs CLI assertions; "1" skips them.
 EOF
             exit 0 ;;
         *) tskr::die "unknown arg: $1" ;;
@@ -44,7 +44,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-tskr::require_cmd docker curl jq aws
+tskr::require_cmd docker curl jq aws cargo
 
 tskr::log "bringing up docker compose stack"
 (cd "${repo_root}" && docker compose up -d --wait)
@@ -64,32 +64,33 @@ AWS_REGION=us-east-1 \
 tskr::log "waiting for tskr-writer /-/ready"
 tskr::wait_http "${WRITER_ENDPOINT}/-/ready" 60
 
-fixture_dir="${repo_root}/tests/fixtures/sessions"
-shopt -s nullglob
-fixtures=( "${fixture_dir}"/*.jsonl )
-shopt -u nullglob
-[[ ${#fixtures[@]} -gt 0 ]] || tskr::die "no fixtures under ${fixture_dir}"
+tskr::log "building tskr CLI in release mode"
+(cd "${repo_root}" && cargo build -p tskr-cli --release)
+TSKR_BIN="${repo_root}/target/release/tskr"
+[[ -x "${TSKR_BIN}" ]] || tskr::die "tskr binary not found at ${TSKR_BIN}"
 
-for fx in "${fixtures[@]}"; do
-    name="$(basename "${fx}" .jsonl)"
-    tskr::log "uploading fixture: ${name}"
-    curl -fsS \
-        -H "Content-Type: application/x-ndjson" \
-        -H "X-Tskr-Author: smoketest@example.com" \
-        -H "X-Tskr-Repo: tskr" \
-        -H "X-Tskr-Host: localhost" \
-        --data-binary "@${fx}" \
-        "${WRITER_ENDPOINT}/sessions/upload" \
-        | jq .
-done
+fixture_dir="${repo_root}/tests/fixtures/sessions"
+[[ -d "${fixture_dir}" ]] || tskr::die "fixture directory missing: ${fixture_dir}"
+
+tskr::log "backfilling fixtures via tskr CLI"
+"${TSKR_BIN}" backfill "${fixture_dir}" --author smoketest@example.com --repo tskr
 
 if [[ "${skip_cli}" == "1" ]]; then
-    tskr::log "--skip-cli set (iter 3 default); skipping CLI assertions"
-    # TODO(iter 6): wire `tskr search "Linux"` and assert short-bug appears.
-    # TODO(iter 6): wire `tskr show <session_id> --at-event N` headlessly.
+    tskr::log "--skip-cli set; skipping CLI search/show assertions"
 else
-    # TODO(iter 7): replace these with real CLI invocations.
-    tskr::die "--no-skip-cli not yet supported; CLI lands in iter 6 and is wired into smoke.sh in iter 7"
+    # vector-writer flushes on an interval; let it absorb the backfill before searching.
+    tskr::log "sleeping 3s for vector-writer flush before search"
+    sleep 3
+
+    tskr::log "running tskr search 'Linux'"
+    "${TSKR_BIN}" search "Linux" | tee /tmp/tskr-smoke-search.out
+    grep -F "session=00000000-0000-0000-0000-000000000001" /tmp/tskr-smoke-search.out \
+        || tskr::die "search did not return short-bug session"
+
+    tskr::log "running tskr show short-bug --at-event 1"
+    "${TSKR_BIN}" show 00000000-0000-0000-0000-000000000001 --at-event 1 | tee /tmp/tskr-smoke-show.out
+    grep -F "Linux" /tmp/tskr-smoke-show.out \
+        || tskr::die "show did not include 'Linux' from event 1"
 fi
 
 tskr::log "smoke test complete"

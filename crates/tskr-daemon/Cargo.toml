@@ -5,6 +5,22 @@ version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[lib]
+name = "tskr_daemon"
+path = "src/lib.rs"
+
 [[bin]]
 name = "tskr-daemon"
 path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs", "time", "signal"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3"

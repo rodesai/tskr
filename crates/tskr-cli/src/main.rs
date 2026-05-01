@@ -32,6 +32,6 @@ async fn main() -> Result<()> {
             let cfg = Config::from_env()?;
             commands::backfill::run(cfg, args).await
         }
-        Command::Daemon(args) => commands::daemon::run(args),
+        Command::Daemon(args) => commands::daemon::run(args).await,
     }
 }
