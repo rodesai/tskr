@@ -1,0 +1,122 @@
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  embedding-server:
+    build:
+      context: ../opendata/vector/quickstart
+      dockerfile: Dockerfile.embedding-server
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  vector-writer:
+    build:
+      context: ../opendata
+      dockerfile: vector/Dockerfile
+    command: ["vector", "--config", "/config/writer.yaml"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../opendata/vector/quickstart/config/writer.yaml:/config/writer.yaml:ro
+      - vector-data:/data/store
+    environment:
+      RUST_LOG: info
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
+      AWS_ALLOW_HTTP: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      minio:
+        condition: service_healthy
+      embedding-server:
+        condition: service_healthy
+
+  vector-reader:
+    build:
+      context: ../opendata
+      dockerfile: vector/Dockerfile
+    command: ["reader", "--config", "/config/reader.yaml"]
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../opendata/vector/quickstart/config/reader.yaml:/config/reader.yaml:ro
+      - vector-data:/data/store
+    environment:
+      RUST_LOG: info
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
+      AWS_ALLOW_HTTP: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    depends_on:
+      minio:
+        condition: service_healthy
+      vector-writer:
+        condition: service_healthy
+
+  tskr-writer:
+    build:
+      context: .
+      dockerfile: services/tskr-writer/Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      TSKR_S3_ENDPOINT: http://minio:9000
+      TSKR_S3_BUCKET: tskr
+      TSKR_S3_ACCESS_KEY: minioadmin
+      TSKR_S3_SECRET_KEY: minioadmin
+      TSKR_EMBED_URL: http://embedding-server:9000
+      TSKR_VECTOR_WRITER_URL: http://vector-writer:8080
+      TSKR_VECTOR_READER_URL: http://vector-reader:8080
+    # Healthcheck intentionally omitted: the tskr-writer binary is a placeholder
+    # in iteration 1 and does not yet serve /healthz. The smoke test will
+    # exercise it once the real service is implemented.
+    depends_on:
+      minio:
+        condition: service_healthy
+      embedding-server:
+        condition: service_healthy
+      vector-writer:
+        condition: service_healthy
+      vector-reader:
+        condition: service_healthy
+
+volumes:
+  minio-data:
+  vector-data:

@@ -1,0 +1,10 @@
+[package]
+name = "tskr-daemon"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "tskr-daemon"
+path = "src/main.rs"

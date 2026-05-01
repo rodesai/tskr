@@ -1,0 +1,10 @@
+[package]
+name = "tskr-cli"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "tskr"
+path = "src/main.rs"
