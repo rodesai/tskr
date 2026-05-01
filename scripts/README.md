@@ -52,7 +52,7 @@ when iterating on the writer in isolation).
 | MinIO console    | 9101      | 9001           | browser UI             |
 | embedding-server | 9000      | 9000           |                        |
 | vector-writer    | 8080      | 8080           | `/-/ready`             |
-| vector-reader    | 8081      | 8080           | `/-/ready`             |
+| vector-reader    | 18081     | 8080           | `/-/ready`             |
 | tskr-writer      | 8090      | 8090           | `/-/ready`, `/sessions/upload` |
 
 ## lib.sh

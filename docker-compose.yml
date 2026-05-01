@@ -80,7 +80,7 @@ services:
       dockerfile: vector/Dockerfile
     command: ["reader", "--config", "/config/reader.yaml"]
     ports:
-      - "8081:8080"
+      - "18081:8080"
     volumes:
       - ./config/vector/reader.yaml:/config/reader.yaml:ro
       - vector-data:/data/store

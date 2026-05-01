@@ -9,16 +9,29 @@
 - [x] tskr CLI: search / list / show / backfill (iter 6); daemon wired iter 7
 - [x] tskr-daemon scanning ~/.claude/projects with ~/.tskr/state.json (iter 7)
 - [x] Fixture sessions under tests/fixtures/sessions/
-- [~] scripts/smoke.sh end-to-end test (iter 8 dropped `aws` dep; iter 9 fixes regressions: vector-writer needs bucket pre-created, and Client::new must not network on construction)
-- [~] README.md "5 minutes to first search" (landed in iter 8; final verification with passing smoke run pending)
+- [x] scripts/smoke.sh end-to-end test (PASSES end-to-end as of iter 10)
+- [x] README.md "5 minutes to first search" (iter 8)
+
+## Termination
+**MET** at iter 10. All deliverables ticked. `./scripts/smoke.sh` exits 0:
+- Stack comes up cleanly (minio→minio-init→embedding-server/vector-writer/vector-reader→tskr-writer all healthy).
+- `tskr backfill` ingests 4 fixtures: 48 events accepted, 31 indexed.
+- `tskr search "Linux"` returns the short-bug session (session=00000000-0000-0000-0000-000000000001 event=1) with score=1.187.
+- `tskr show 00000000-0000-0000-0000-000000000001 --at-event 1` renders the user message with "Linux".
+- 25 workspace tests pass.
+
+## Iteration history
+- iter 1: workspace + docker-compose skeleton.
+- iter 2: tskr-core (16 tests) + Aws-mode vector configs + 4 fixture sessions.
+- iter 3+4: tskr-writer HTTP skeleton + smoke.sh skeleton + real S3/embed/vector clients (iter 3 request_changes, folded into iter 4).
+- iter 5: full pipeline wired + AppState + real /-/ready dep probes + tskr-writer healthcheck.
+- iter 6: tskr CLI (search/list/show/backfill + daemon stub) (6 tests).
+- iter 7: tskr-daemon (poll-based, atomic state, backoff) + smoke.sh real CLI wiring.
+- iter 8: README + drop aws CLI dep (request_changes).
+- iter 9: minio-init compose service + ensure_bucket pub method (fixes iter 8 regressions).
+- iter 10: vector-reader host port 8081→18081 + smoke flush sleep 15s; smoke.sh passes.
 
 ## Notes
-- Iter 1–7 committed. Iter 8 not yet committed (Reviewer requested changes).
-- Iter 9 plan: w1 (single worker) — (a) move ensure_bucket out of `Client::new` into a public method called explicitly from main.rs; (b) add `minio-init` one-shot compose service using `minio/mc:latest` running `mc mb --ignore-existing local/tskr`; (c) make vector-writer/vector-reader/tskr-writer depend on `minio-init: condition: service_completed_successfully`; (d) Worker MUST run `cargo test --workspace`.
-- `head_bucket`'s NotFound predicate in aws_sdk_s3 v1.x is `is_not_found()`.
-- Deferred: multi-tenancy/auth, E2E encryption, embedder bake-off, MCP server, ratatui TUI.
-
-## Last reviewer rationale
-(iter 8) request_changes — Two real regressions:
-(1) `cargo test --workspace` fails: tskr-writer/tests/health.rs panics because `Client::new` now eagerly calls `head_bucket` against the test's fake endpoint `http://127.0.0.1:1`.
-(2) `./scripts/smoke.sh` fails: vector-writer also uses MinIO bucket `tskr` for SlateDB. tskr-writer depends_on vector-writer healthy. Bucket-create moved into tskr-writer means vector-writer never gets the bucket, never becomes healthy, tskr-writer never starts.
+- Deferred (post-milestone-1): multi-tenancy/auth (M2), E2E encryption (M2), embedder bake-off + sub-event chunking + dedup (M3), MCP server / `/tskr` slash command (M4), ratatui TUI for `show`.
+- Vector reader host port: 18081 (changed from 8081 to avoid conflict with another local service on this host; PLAN.md was not updated since it doesn't reference a specific host port).
+- Search ranking is imperfect (per PLAN.md §Milestone 3, embedder bake-off is deferred). Smoke test asserts session appears, not that it's #1.

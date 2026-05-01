@@ -47,7 +47,7 @@ trap cleanup EXIT
 tskr::require_cmd docker curl jq cargo
 
 tskr::log "bringing up docker compose stack"
-(cd "${repo_root}" && docker compose up -d --wait)
+(cd "${repo_root}" && docker compose up -d --build --wait)
 
 WRITER_ENDPOINT="http://localhost:8090"
 
@@ -68,9 +68,9 @@ tskr::log "backfilling fixtures via tskr CLI"
 if [[ "${skip_cli}" == "1" ]]; then
     tskr::log "--skip-cli set; skipping CLI search/show assertions"
 else
-    # vector-writer flushes on an interval; let it absorb the backfill before searching.
-    tskr::log "sleeping 3s for vector-writer flush before search"
-    sleep 3
+    # vector-writer flushes on an interval (5s per config/vector/writer.yaml); let it absorb the backfill plus reader-side propagation before searching.
+    tskr::log "sleeping 15s for vector-writer flush + reader propagation before search"
+    sleep 15
 
     tskr::log "running tskr search 'Linux'"
     "${TSKR_BIN}" search "Linux" | tee /tmp/tskr-smoke-search.out

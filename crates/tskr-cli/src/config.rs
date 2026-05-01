@@ -17,7 +17,7 @@ impl Config {
         Ok(Self {
             writer_url: var_or("TSKR_WRITER_URL", "http://localhost:8090"),
             embed_url: var_or("TSKR_EMBED_URL", "http://localhost:9000"),
-            vector_reader_url: var_or("TSKR_VECTOR_READER_URL", "http://localhost:8081"),
+            vector_reader_url: var_or("TSKR_VECTOR_READER_URL", "http://localhost:18081"),
             s3_endpoint: var_or("TSKR_S3_ENDPOINT", "http://localhost:9100"),
             s3_bucket: var_or("TSKR_S3_BUCKET", "tskr"),
             s3_region: var_or("TSKR_S3_REGION", "us-east-1"),
