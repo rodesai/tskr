@@ -60,6 +60,13 @@ metadata filters + range queries by time) exercises most of the index.
 
 ### Components
 
+All three first-party components (`tskr-writer`, `tskr-daemon`, `tskr` CLI)
+are written in **Rust**, organized as a single Cargo workspace at the repo
+root. Sharing a workspace lets the daemon and CLI reuse the writer's request
+types, the segment/manifest schema, and the JSONL event parser as a common
+`tskr-core` crate. Target toolchain: stable Rust (pinned via
+`rust-toolchain.toml`), edition 2021.
+
 #### 1. `tskr-writer` — ingest service
 
 HTTP service that accepts session uploads. The single write endpoint is the
@@ -127,7 +134,7 @@ will redeliver on retry and on every poll cycle.
 
 #### 2. `tskr-daemon` — per-laptop uploader
 
-Lightweight Python (or Rust) process that:
+Lightweight Rust process that:
 
 - Watches `~/.claude/projects/**/*.jsonl`.
 - For each file, tracks `(path, last_uploaded_event_index)` in
@@ -158,9 +165,9 @@ tskr daemon start | status | stop
   *roughly when* but not *what*.
 - **`show`** loads the manifest from S3 to learn the segment count, fetches
   the segment containing `--at-event` (and a couple on either side), and
-  renders the conversation in a TUI (`textual` for milestone 1) scrolled to
-  that event with up/down/page-up/page-down navigation. Additional segments
-  are lazy-loaded on scroll.
+  renders the conversation in a TUI (`ratatui` + `crossterm` for milestone 1)
+  scrolled to that event with up/down/page-up/page-down navigation.
+  Additional segments are lazy-loaded on scroll.
 
 ### Data layout — S3
 
@@ -197,9 +204,14 @@ In scope:
     - `embedding-server` — reused from `vector/quickstart`.
     - `vector-writer` and `vector-reader` — opendata vector, configured for
       the `tskr` schema and pointed at `minio`.
-    - `tskr-writer` — Python (FastAPI) service implementing the pipeline above.
-- `tskr` CLI (Python, `click` + `textual`).
-- `tskr-daemon` (Python) that scans `~/.claude/projects` and uploads.
+    - `tskr-writer` — Rust HTTP service (`axum` + `tokio`) implementing the
+      pipeline above. Built and shipped as a small Alpine-based image from
+      a multi-stage `Dockerfile`.
+- `tskr` CLI — Rust binary using `clap` for argument parsing and `ratatui` +
+  `crossterm` for the `show` TUI. Single static binary, no runtime deps.
+- `tskr-daemon` — Rust binary (same workspace, same `tskr` cargo workspace)
+  that scans `~/.claude/projects` and uploads. Uses `notify` for filesystem
+  watching and `reqwest` for HTTP.
 - `tskr backfill` one-shot command that sweeps every existing session under
   `~/.claude/projects` (so we have something to search the first time).
 - Smoke test (`scripts/smoke.sh`) that:

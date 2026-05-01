@@ -132,7 +132,7 @@ Skeleton:
 
 ## Deliverables (from PLAN.md §Milestone 1)
 - [ ] docker-compose.yml with minio, embedding-server, vector-writer, vector-reader, tskr-writer
-- [ ] tskr-writer service (FastAPI) with /sessions/upload, /healthz, /-/ready
+- [ ] tskr-writer service (Rust / axum) with /sessions/upload, /healthz, /-/ready
 - [ ] Chunking + embedding + S3 segment write + vector upsert pipeline
 - [ ] S3 layout: sessions/<id>/manifest.json + seg-NNNNN.jsonl
 - [ ] Vector schema (session_id, event_index, segment_index, author, repo, model, role, timestamp, text)
@@ -171,9 +171,12 @@ Skeleton:
 > 2. Make the smallest change that completes the task. Match existing style.
 >   No speculative abstractions, no extra features, no comments narrating
 >   what the code does.
-> 3. Verify locally where possible: run `pytest -q` on tests you added,
->   `python -m compileall` for syntax, `docker compose config` for compose
->   files, `bash -n` for shell scripts, etc.
+> 3. Verify locally where possible: run `cargo check -p <crate>` for the
+>   crate you touched, `cargo test -p <crate>` on tests you added,
+>   `cargo fmt --check` and `cargo clippy --no-deps -- -D warnings` on Rust
+>   code, `docker compose config` for compose files, `bash -n` for shell
+>   scripts, etc. Building the full workspace with `cargo build` is fine but
+>   not required on every iteration — prefer the per-crate commands.
 > 4. Return a short structured report:
 >
 > ```
@@ -268,7 +271,8 @@ Skeleton:
 >   would be cheaper to redo than to fix (wrong language, wrong storage
 >   layer, etc.).
 > - You may run read-only commands (`cat`, `ls`, `docker compose config`,
->   `python -m py_compile`, `pytest -q`) but do not modify files.
+>   `cargo check`, `cargo test`, `cargo clippy --no-deps`,
+>   `cargo fmt --check`) but do not modify files.
 
 ---
 
